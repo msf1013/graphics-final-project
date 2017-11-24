@@ -127,9 +127,9 @@ out vec4 fragment_color;
 void main()
 {
 	fragment_color = vec4(0.0, 1.0, 0.0, 0.0);
-	float dot_nl = dot(normalize(light_direction), normalize(normal));
-	dot_nl = clamp(dot_nl, 0.1, 1.0);
-	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+	//float dot_nl = dot(normalize(light_direction), normalize(normal));
+	//dot_nl = clamp(dot_nl, 0.1, 1.0);
+	//fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
 }
 )zzz";
 
@@ -148,7 +148,7 @@ ErrorCallback(int error, const char* description)
 }
 
 std::shared_ptr<Menger> g_menger;
-Camera g_camera(4.0f, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+Camera g_camera(20.0f, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 // Interaction variables
 bool fpsMode = false;
@@ -566,7 +566,17 @@ int main(int argc, char* argv[])
 
 
 	// Create data structures for the skeleton.
-	Boid * boid = new Boid();
+	std::vector<Boid*> boids;
+	std::vector<glm::vec4> boids_vertices;
+	std::vector<glm::uvec3> boids_faces;
+
+	for (int i = 0; i < 10; i ++) {
+		float rand_x = rand() % 20 - 10;
+		float rand_y = rand() % 20 - 10;
+		float rand_z = rand() % 20 - 10;
+		std::cout << rand_x << " " << rand_y << " " << rand_z << "\n";
+		boids.push_back(new Boid(rand_x, rand_y, rand_z, boids_vertices, boids_faces, i));
+	}
 
 	// Switch to the VAO for Geometry.
 	CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kBoidsVao]));
@@ -578,7 +588,7 @@ int main(int argc, char* argv[])
 	CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, g_buffer_objects[kBoidsVao][kVertexBuffer]));
 	// NOTE: We do not send anything right now, we just describe it to OpenGL.
 	CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
-				sizeof(float) * (boid->vertices.size()) * 4, nullptr,
+				sizeof(float) * boids_vertices.size() * 4, nullptr,
 				GL_STATIC_DRAW));
 	CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
 	CHECK_GL_ERROR(glEnableVertexAttribArray(0));
@@ -586,8 +596,8 @@ int main(int argc, char* argv[])
 	// Setup element array buffer.
 	CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kBoidsVao][kIndexBuffer]));
 	CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-				sizeof(uint32_t) * (boid->faces.size()) * 3,
-				&(boid->faces[0]), GL_STATIC_DRAW));
+				sizeof(uint32_t) * boids_faces.size() * 3,
+				&boids_faces[0], GL_STATIC_DRAW));
 
 	// Setup fragment shader for the floor
 	GLuint boids_fragment_shader_id = 0;
@@ -622,12 +632,6 @@ int main(int argc, char* argv[])
 	GLint boids_light_position_location = 0;
 	CHECK_GL_ERROR(boids_light_position_location =
 			glGetUniformLocation(boids_program_id, "light_position"));
-
-	for (auto vertex : boid->vertices) {
-		std::cout << vertex.x << " " << vertex.y << " " << vertex.z << "\n";
-	}
-
-
 
 	while (!glfwWindowShouldClose(window)) {
 		// Setup some basic window stuff.
@@ -722,8 +726,8 @@ int main(int argc, char* argv[])
 		CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER,
 		                            g_buffer_objects[kBoidsVao][kVertexBuffer]));
 		CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
-		                            sizeof(float) * (boid->vertices.size()) * 4,
-		                            &(boid->vertices[0]), GL_STATIC_DRAW));
+		                            sizeof(float) * boids_vertices.size() * 4,
+		                            &boids_vertices[0], GL_STATIC_DRAW));
 
 		// Use floor program.
 		CHECK_GL_ERROR(glUseProgram(boids_program_id));
@@ -736,10 +740,11 @@ int main(int argc, char* argv[])
 		CHECK_GL_ERROR(glUniform4fv(boids_light_position_location, 1, &light_position[0]));
 
 		// Draw our triangles.
-		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, boid->faces.size() * 3, GL_UNSIGNED_INT, 0));
+		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, boids_faces.size() * 3, GL_UNSIGNED_INT, 0));
 
-		boid->update();
-
+		for (int i = 0; i < boids.size(); i ++) {
+			boids[i]->update(boids_vertices);
+		}
 
 		// Poll and swap.
 		glfwPollEvents();
