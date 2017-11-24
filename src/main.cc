@@ -14,6 +14,7 @@
 #include <debuggl.h>
 #include "menger.h"
 #include "camera.h"
+#include "boid.h"
 
 int window_width = 800, window_height = 600;
 
@@ -21,7 +22,7 @@ int window_width = 800, window_height = 600;
 enum { kVertexBuffer, kIndexBuffer, kNumVbos };
 
 // These are our VAOs.
-enum { kGeometryVao, kFloorVao, kNumVaos };
+enum { kGeometryVao, kFloorVao, kBoidsVao, kNumVaos };
 
 GLuint g_array_objects[kNumVaos];  // This will store the VAO descriptors.
 GLuint g_buffer_objects[kNumVaos][kNumVbos];  // These will store VBO descriptors.
@@ -111,6 +112,21 @@ void main()
 		fragment_color.z = 1.0;
 	}
 
+	float dot_nl = dot(normalize(light_direction), normalize(normal));
+	dot_nl = clamp(dot_nl, 0.1, 1.0);
+	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+}
+)zzz";
+
+const char* boids_fragment_shader =
+R"zzz(#version 330 core
+flat in vec4 normal;
+in vec4 light_direction;
+in vec3 world_position;
+out vec4 fragment_color;
+void main()
+{
+	fragment_color = vec4(0.0, 1.0, 0.0, 0.0);
 	float dot_nl = dot(normalize(light_direction), normalize(normal));
 	dot_nl = clamp(dot_nl, 0.1, 1.0);
 	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
@@ -548,6 +564,71 @@ int main(int argc, char* argv[])
 	float aspect = 0.0f;
 	float theta = 0.0f;
 
+
+	// Create data structures for the skeleton.
+	Boid * boid = new Boid();
+
+	// Switch to the VAO for Geometry.
+	CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kBoidsVao]));
+
+	// Generate buffer objects
+	CHECK_GL_ERROR(glGenBuffers(kNumVbos, &g_buffer_objects[kBoidsVao][0]));
+
+	// Setup vertex data in a VBO.
+	CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, g_buffer_objects[kBoidsVao][kVertexBuffer]));
+	// NOTE: We do not send anything right now, we just describe it to OpenGL.
+	CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
+				sizeof(float) * (boid->vertices.size()) * 4, nullptr,
+				GL_STATIC_DRAW));
+	CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
+	CHECK_GL_ERROR(glEnableVertexAttribArray(0));
+
+	// Setup element array buffer.
+	CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kBoidsVao][kIndexBuffer]));
+	CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+				sizeof(uint32_t) * (boid->faces.size()) * 3,
+				&(boid->faces[0]), GL_STATIC_DRAW));
+
+	// Setup fragment shader for the floor
+	GLuint boids_fragment_shader_id = 0;
+	const char* boids_fragment_source_pointer = boids_fragment_shader;
+	CHECK_GL_ERROR(boids_fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER));
+	CHECK_GL_ERROR(glShaderSource(boids_fragment_shader_id, 1,
+				&boids_fragment_source_pointer, nullptr));
+	glCompileShader(boids_fragment_shader_id);
+	CHECK_GL_SHADER_ERROR(boids_fragment_shader_id);
+
+
+	// Let's create our floor program.
+	GLuint boids_program_id = 0;
+	CHECK_GL_ERROR(boids_program_id = glCreateProgram());
+	CHECK_GL_ERROR(glAttachShader(boids_program_id, vertex_shader_id));
+	CHECK_GL_ERROR(glAttachShader(boids_program_id, boids_fragment_shader_id));
+	CHECK_GL_ERROR(glAttachShader(boids_program_id, geometry_shader_id));
+
+	// Bind attributes.
+	CHECK_GL_ERROR(glBindAttribLocation(boids_program_id, 0, "vertex_position"));
+	CHECK_GL_ERROR(glBindFragDataLocation(boids_program_id, 0, "fragment_color"));
+	glLinkProgram(boids_program_id);
+	CHECK_GL_PROGRAM_ERROR(boids_program_id);
+
+	// Get the uniform locations.
+	GLint boids_projection_matrix_location = 0;
+	CHECK_GL_ERROR(boids_projection_matrix_location =
+			glGetUniformLocation(boids_program_id, "projection"));
+	GLint boids_view_matrix_location = 0;
+	CHECK_GL_ERROR(boids_view_matrix_location =
+			glGetUniformLocation(boids_program_id, "view"));
+	GLint boids_light_position_location = 0;
+	CHECK_GL_ERROR(boids_light_position_location =
+			glGetUniformLocation(boids_program_id, "light_position"));
+
+	for (auto vertex : boid->vertices) {
+		std::cout << vertex.x << " " << vertex.y << " " << vertex.z << "\n";
+	}
+
+
+
 	while (!glfwWindowShouldClose(window)) {
 		// Setup some basic window stuff.
 		glfwGetFramebufferSize(window, &window_width, &window_height);
@@ -630,6 +711,35 @@ int main(int argc, char* argv[])
 
 		// Draw our triangles.
 		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, plane_faces.size() * 3, GL_UNSIGNED_INT, 0));
+
+
+
+		// Floor program.
+
+		// Switch to the Geometry VAO.
+		CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kBoidsVao]));
+		// Send vertices to the GPU.
+		CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER,
+		                            g_buffer_objects[kBoidsVao][kVertexBuffer]));
+		CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
+		                            sizeof(float) * (boid->vertices.size()) * 4,
+		                            &(boid->vertices[0]), GL_STATIC_DRAW));
+
+		// Use floor program.
+		CHECK_GL_ERROR(glUseProgram(boids_program_id));
+
+		// Pass uniforms in.
+		CHECK_GL_ERROR(glUniformMatrix4fv(boids_projection_matrix_location, 1, GL_FALSE,
+					&projection_matrix[0][0]));
+		CHECK_GL_ERROR(glUniformMatrix4fv(boids_view_matrix_location, 1, GL_FALSE,
+					&view_matrix[0][0]));
+		CHECK_GL_ERROR(glUniform4fv(boids_light_position_location, 1, &light_position[0]));
+
+		// Draw our triangles.
+		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, boid->faces.size() * 3, GL_UNSIGNED_INT, 0));
+
+		boid->update();
+
 
 		// Poll and swap.
 		glfwPollEvents();
