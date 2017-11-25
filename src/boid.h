@@ -43,9 +43,11 @@ public:
 
 	void update(std::vector<glm::vec4>& vertices, std::vector<Boid*> boids) {
 		glm::vec3 v1 = cohesion(boids);
+		glm::vec3 v2 = separation(boids);
+		glm::vec3 v3 = alignment(boids);
 
 
-		velocity = velocity + v1;
+		velocity = velocity + v1 + v2;
 		velocity = limit_velocity(velocity); 
 
 		glm::vec3 new_front = glm::normalize(velocity);
@@ -76,16 +78,54 @@ public:
 
 	glm::vec3 cohesion(std::vector<Boid*> boids) {
 		glm::vec3 avg_position = glm::vec3(0.0f, 0.0f, 0.0f);
+		float count = 0.0f;
 
 		for (int i = 0; i < boids.size(); i ++) {
-			if (i != index) {
+			if (i != index && glm::length((boids[i]->center) - center) < 20.0f) {
+				count = count + 1.0f;
 				avg_position += boids[i]->center;
 			}
 		}
 
-		avg_position /= ((float) (boids.size() - 1));
+		if (count > 0.0f) {
+			avg_position /= count;
 
-		return (avg_position - center) / 100.0f;
+			return (avg_position - center) / 100.0f;
+		}
+
+		return glm::vec3(0.0f, 0.0f, 0.0f);
+	}
+
+	glm::vec3 separation(std::vector<Boid*> boids) {
+		glm::vec3 displacement = glm::vec3(0.0f, 0.0f, 0.0f);
+
+		for (int i = 0; i < boids.size(); i ++) {
+			if (i != index && glm::length((boids[i]->center) - center) < 2.0f) {
+				displacement = displacement - ((boids[i]->center) - center);
+			}
+		}
+
+		return displacement;
+	}
+
+	glm::vec3 alignment(std::vector<Boid*> boids) {
+		glm::vec3 orientation = glm::vec3(0.0f, 0.0f, 0.0f);
+		float count = 0.0f;
+
+		for (int i = 0; i < boids.size(); i ++) {
+			if (i != index && glm::length((boids[i]->center) - center) < 20.0f) {
+				count = count + 1.0f;
+				orientation += boids[i]->velocity;
+			}
+		}
+
+		if (count > 0.0f) {
+			orientation /= count;
+
+			return (orientation - velocity) / 8.0f;
+		}
+
+		return glm::vec3(0.0f, 0.0f, 0.0f); 
 	}
 
 	glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
@@ -122,7 +162,7 @@ public:
 	}
 
 	~Boid();
-	float velocity_limit = 0.01f;
+	float velocity_limit = 0.45f;
 	int index;
 	int vertex_base_index;
 	glm::vec3 center;

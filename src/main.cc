@@ -148,7 +148,7 @@ ErrorCallback(int error, const char* description)
 }
 
 std::shared_ptr<Menger> g_menger;
-Camera g_camera(20.0f, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+Camera g_camera(100.0f, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 // Interaction variables
 bool fpsMode = false;
@@ -570,10 +570,10 @@ int main(int argc, char* argv[])
 	std::vector<glm::vec4> boids_vertices;
 	std::vector<glm::uvec3> boids_faces;
 
-	for (int i = 0; i < 10; i ++) {
-		float rand_x = rand() % 20 - 10;
-		float rand_y = rand() % 20 - 10;
-		float rand_z = rand() % 20 - 10;
+	for (int i = 0; i < 100; i ++) {
+		float rand_x = rand() % 100 - 50;
+		float rand_y = rand() % 100 - 50;
+		float rand_z = rand() % 100 - 50;
 		std::cout << rand_x << " " << rand_y << " " << rand_z << "\n";
 		boids.push_back(new Boid(rand_x, rand_y, rand_z, boids_vertices, boids_faces, i));
 	}
