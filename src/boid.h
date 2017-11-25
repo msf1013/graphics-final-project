@@ -7,6 +7,8 @@
 #include <glm/gtx/norm.hpp> 
 #include <vector>
 
+float lim = 100.0f;
+
 class Boid {
 public:
 	Boid(float x, float y, float z, std::vector<glm::vec4>& vertices, std::vector<glm::uvec3>& faces, int index) {
@@ -45,7 +47,7 @@ public:
 		glm::vec3 v1 = cohesion(boids);
 		glm::vec3 v2 = separation(boids);
 		glm::vec3 v3 = alignment(boids);
-
+		//glm::vec3 v4 = bound_position();
 
 		velocity = velocity + v1 + v2;
 		velocity = limit_velocity(velocity); 
@@ -126,6 +128,30 @@ public:
 		}
 
 		return glm::vec3(0.0f, 0.0f, 0.0f); 
+	}
+
+	glm::vec3 bound_position() {
+		glm::vec3 orientation = glm::vec3(0.0f, 0.0f, 0.0f);
+
+		if (center.x < -lim) {
+			orientation.x = 10.0f;
+		} else if (center.x > lim) {
+			orientation.x = -10.0f;
+		}
+
+		if (center.y < -lim) {
+			orientation.y = 10.0f;
+		} else if (center.y > lim) {
+			orientation.y = -10.0f;
+		}
+
+		if (center.z < -lim) {
+			orientation.z = 10.0f;
+		} else if (center.z > lim) {
+			orientation.z = -10.0f;
+		}
+		
+		return orientation;
 	}
 
 	glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
