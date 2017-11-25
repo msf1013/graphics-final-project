@@ -41,9 +41,15 @@ public:
 		faces.push_back(glm::uvec3(vertex_base_index + 2, vertex_base_index + 1, vertex_base_index + 4));
 	}
 
-	void update(std::vector<glm::vec4>& vertices) {
-		glm::vec3 new_front = front;
-		new_front = front + 0.01f * right + 0.01f * front + 0.01f * up;
+	void update(std::vector<glm::vec4>& vertices, std::vector<Boid*> boids) {
+		glm::vec3 v1 = cohesion(boids);
+
+
+		velocity = velocity + v1;
+		velocity = limit_velocity(velocity); 
+
+		glm::vec3 new_front = glm::normalize(velocity);
+		//new_front = front + 0.01f * right + 0.01f * front + 0.01f * up;
 		glm::quat q = RotationBetweenVectors(front, new_front);
 
 		for (int i = 0; i < 6; i ++) {
@@ -55,10 +61,31 @@ public:
 		right = glm::normalize(glm::vec3(q * glm::vec4(right, 1.0f)));
 
 		for (int i = 0; i < 6; i ++) {
-			vertices[vertex_base_index + i] = glm::vec4(glm::vec3(vertices[vertex_base_index + i]) + 0.001f * front, 1.0f);
+			vertices[vertex_base_index + i] = glm::vec4(glm::vec3(vertices[vertex_base_index + i]) + velocity, 1.0f);
 		}
 
-		center = center + 0.0001f * front;
+		center = center + velocity;
+	}
+
+	glm::vec3 limit_velocity(glm::vec3 v) {
+		if (glm::length(v) > velocity_limit) {
+			return velocity_limit * glm::normalize(v);
+		}
+		return v;
+	}
+
+	glm::vec3 cohesion(std::vector<Boid*> boids) {
+		glm::vec3 avg_position = glm::vec3(0.0f, 0.0f, 0.0f);
+
+		for (int i = 0; i < boids.size(); i ++) {
+			if (i != index) {
+				avg_position += boids[i]->center;
+			}
+		}
+
+		avg_position /= ((float) (boids.size() - 1));
+
+		return (avg_position - center) / 100.0f;
 	}
 
 	glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
@@ -95,6 +122,7 @@ public:
 	}
 
 	~Boid();
+	float velocity_limit = 0.01f;
 	int index;
 	int vertex_base_index;
 	glm::vec3 center;

@@ -714,7 +714,7 @@ int main(int argc, char* argv[])
 		CHECK_GL_ERROR(glUniform4fv(floor_light_position_location, 1, &light_position[0]));
 
 		// Draw our triangles.
-		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, plane_faces.size() * 3, GL_UNSIGNED_INT, 0));
+		//CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, plane_faces.size() * 3, GL_UNSIGNED_INT, 0));
 
 
 
@@ -743,7 +743,7 @@ int main(int argc, char* argv[])
 		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, boids_faces.size() * 3, GL_UNSIGNED_INT, 0));
 
 		for (int i = 0; i < boids.size(); i ++) {
-			boids[i]->update(boids_vertices);
+			boids[i]->update(boids_vertices, boids);
 		}
 
 		// Poll and swap.
