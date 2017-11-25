@@ -6,18 +6,45 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/norm.hpp> 
 #include <vector>
+#include <random>
 
-float lim = 100.0f;
+float lim = 40.0f;
 
 class Boid {
 public:
+	float rand_d() {
+		return 2.0f * (((double) rand() / (RAND_MAX)) + 1.0) - 1.0f;
+	}
+
 	Boid(float x, float y, float z, std::vector<glm::vec4>& vertices, std::vector<glm::uvec3>& faces, int index) {
 		this->index = index;
 		center = glm::vec3(x, y, z);
-		velocity = glm::vec3(0.0f, 0.0f, -1.0f);
-		front = glm::vec3(0.0f, 0.0f, -1.0f);
-		up = glm::vec3(0.0f, 1.0f, 0.0f);
-		right = glm::vec3(1.0f, 0.0f, 0.0f);
+
+		// Randomize velocity
+		velocity = glm::vec3(rand_d(), rand_d(), rand_d());
+		velocity = glm::normalize(velocity);
+		front = velocity;
+		velocity *= 2.0f;
+
+		// Calculate up
+		glm::vec3 v = front;
+		if (v.x < v.y && v.x < v.z) {
+			v.x = 1.0f;
+			v.y = 0.0f;
+			v.z = 0.0f;
+		} else if (v.y < v.z && v.y < v.z) {
+			v.x = 0.0f;
+			v.y = 1.0f;
+			v.z = 0.0f;
+		} else {
+			v.x = 0.0f;
+			v.y = 0.0f;
+			v.z = 1.0f;
+		}
+		up = glm::cross(front, v) / glm::length(glm::cross(front, v));
+
+		// Calculate right
+		right = glm::cross(front, up);
 
 		vertex_base_index = vertices.size();
 
@@ -47,9 +74,9 @@ public:
 		glm::vec3 v1 = cohesion(boids);
 		glm::vec3 v2 = separation(boids);
 		glm::vec3 v3 = alignment(boids);
-		//glm::vec3 v4 = bound_position();
+		glm::vec3 v4 = bound_position();
 
-		velocity = velocity + v1 + v2;
+		velocity = velocity + v1 + v2 + v3 + v4;
 		velocity = limit_velocity(velocity); 
 
 		glm::vec3 new_front = glm::normalize(velocity);
@@ -83,7 +110,7 @@ public:
 		float count = 0.0f;
 
 		for (int i = 0; i < boids.size(); i ++) {
-			if (i != index && glm::length((boids[i]->center) - center) < 20.0f) {
+			if (i != index && glm::length((boids[i]->center) - center) < 10.0f) {
 				count = count + 1.0f;
 				avg_position += boids[i]->center;
 			}
@@ -102,8 +129,12 @@ public:
 		glm::vec3 displacement = glm::vec3(0.0f, 0.0f, 0.0f);
 
 		for (int i = 0; i < boids.size(); i ++) {
-			if (i != index && glm::length((boids[i]->center) - center) < 2.0f) {
-				displacement = displacement - ((boids[i]->center) - center);
+			float d = glm::length((boids[i]->center) - center);
+			if (i != index && d < 2.0f) {
+				glm::vec3 sample = center - (boids[i]->center);
+				sample /= d;
+
+				displacement += sample;
 			}
 		}
 
@@ -115,43 +146,48 @@ public:
 		float count = 0.0f;
 
 		for (int i = 0; i < boids.size(); i ++) {
-			if (i != index && glm::length((boids[i]->center) - center) < 20.0f) {
+			float d = glm::length((boids[i]->center) - center);
+			if (i != index && d < 10.0f) {
+				glm::vec3 sample = boids[i]->velocity;
+				sample /= d;
 				count = count + 1.0f;
-				orientation += boids[i]->velocity;
+				orientation += sample;
 			}
 		}
 
-		if (count > 0.0f) {
-			orientation /= count;
-
-			return (orientation - velocity) / 8.0f;
-		}
-
-		return glm::vec3(0.0f, 0.0f, 0.0f); 
+		return orientation / 50.0f;
 	}
 
 	glm::vec3 bound_position() {
-		glm::vec3 orientation = glm::vec3(0.0f, 0.0f, 0.0f);
+		if (glm::length(center) < 70.0f) {
+			return glm::vec3(0.0f, 0.0f, 0.0f);
+		}
+
+		return -1.0f * center * (((float) rand() / (RAND_MAX)) + 1.0f);
+
+
+		/*glm::vec3 orientation = glm::vec3(0.0f, 0.0f, 0.0f);
+
 
 		if (center.x < -lim) {
-			orientation.x = 10.0f;
+			orientation.x = (((double) rand() / (RAND_MAX)) + 1.0);
 		} else if (center.x > lim) {
-			orientation.x = -10.0f;
+			orientation.x = -(((double) rand() / (RAND_MAX)) + 1.0);
 		}
 
 		if (center.y < -lim) {
-			orientation.y = 10.0f;
+			orientation.y = (((double) rand() / (RAND_MAX)) + 1.0);
 		} else if (center.y > lim) {
-			orientation.y = -10.0f;
+			orientation.y = -(((double) rand() / (RAND_MAX)) + 1.0);
 		}
 
 		if (center.z < -lim) {
-			orientation.z = 10.0f;
+			orientation.z = (((double) rand() / (RAND_MAX)) + 1.0);
 		} else if (center.z > lim) {
-			orientation.z = -10.0f;
+			orientation.z = -(((double) rand() / (RAND_MAX)) + 1.0);
 		}
 		
-		return orientation;
+		return orientation;*/
 	}
 
 	glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
@@ -188,7 +224,7 @@ public:
 	}
 
 	~Boid();
-	float velocity_limit = 0.45f;
+	float velocity_limit = 0.6f;
 	int index;
 	int vertex_base_index;
 	glm::vec3 center;
