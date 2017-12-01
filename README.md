@@ -25,9 +25,9 @@ The project implements a flock simulation that loads multiple independent agents
 a scene. Agents exhibit flocking behavior by using the simulated flock rules described
 by Craig Reynolds in: http://www.cs.toronto.edu/~dt/siggraph97-course/cwr87/.
 
-# Acknowledgement 
+## Acknowledgement 
 
 The initial files are based on the Menger's sponge project written by
 Mario Fuentes for 2018 Fall Graphics Course.
 
-The project's report is located in: https://github.com/msf1013/graphics-final-project.
+The project's repository is located in: https://github.com/msf1013/graphics-final-project.
