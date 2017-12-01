@@ -1,7 +1,4 @@
 Members:
 Mario Sergio Fuentes Juarez EID: mf32849
 
-Implementation of Menger sponge + FPS/orbital camera controls + shaders.
-
-Fixed inverted world bug during zoom-in, by preventing camera_distance
-from going negative.
+Final project: 3D Flock simulation in OpenGL.
