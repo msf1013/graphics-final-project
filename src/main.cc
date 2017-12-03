@@ -159,6 +159,8 @@ bool s_pressed = false;
 bool a_pressed = false;
 bool d_pressed = false;
 
+bool q_pressed = false;
+
 bool down_pressed = false;
 bool up_pressed = false;
 
@@ -197,6 +199,9 @@ KeyCallback(GLFWwindow* window,
 		up_pressed = true;
 	} else if (key == GLFW_KEY_C && action != GLFW_RELEASE) {
 		fpsMode = !fpsMode;
+	} else if (key == GLFW_KEY_Q && action != GLFW_RELEASE) {
+		std::cout << "Q-pressed: event\n";
+		q_pressed = true;
 	}
 
 	if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
@@ -215,6 +220,9 @@ KeyCallback(GLFWwindow* window,
 		left_pressed = false;
 	} else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE) {
 		right_pressed = false;
+	} else if (key == GLFW_KEY_Q && action == GLFW_RELEASE) {
+		std::cout << "Q-unpressed: event\n";
+		q_pressed = false;
 	}
 
 	if (!g_menger)
@@ -249,6 +257,9 @@ float mouse_y_current = NOISE;
 float mouse_x_captured;
 float mouse_y_captured;
 
+float mouse_x_captured_without_button_press;
+float mouse_y_captured_without_button_press;
+
 bool mouse_capture_left = false;
 bool mouse_capture_right = false;
 
@@ -258,6 +269,8 @@ void
 MousePosCallback(GLFWwindow* window, double mouse_x, double mouse_y)
 {
 	if (!g_mouse_pressed) {
+		mouse_x_captured_without_button_press = mouse_x;
+		mouse_y_captured_without_button_press = window_height - mouse_y;
 		return;
 	}
 	if (g_current_button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -367,6 +380,37 @@ checkInput() {
 		
 		dragDirection = glm::vec2(0.0f, 0.0f);
 	}
+}
+
+// Method that checks the status of the interaction variables related to object input,
+// adding new objects to the scene in case that the user presses keys 'q' (for boids)
+// or 'r' (for obstacles).
+bool
+checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix, std::vector<Boid*> &boids,
+	std::vector<glm::vec4> &boids_vertices, std::vector<glm::uvec3> &boids_faces) {
+	if (q_pressed) {
+		std::cout << "trying to add boid\n";
+
+		// Insert new boid in scene.
+		glm::uvec4 viewport = glm::uvec4(0, 0, window_width, window_height);
+
+		glm::vec3 near_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 0.0f);
+		glm::vec3 far_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 1.0f);
+
+		glm::vec3 world_near_coordinate = glm::unProject(near_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
+		glm::vec3 world_far_coordinate = glm::unProject(far_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
+
+		glm::vec3 direction = glm::normalize(world_far_coordinate - world_near_coordinate);
+
+		float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+
+		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * r * 0.1f;
+
+		boids.push_back(new Boid(position.x, position.y, position.z, boids_vertices, boids_faces, boids.size()));
+		q_pressed = false;
+		return true;
+	}
+	return false;
 }
 
 int main(int argc, char* argv[])
@@ -673,6 +717,9 @@ int main(int argc, char* argv[])
 		// Compute the view matrix.
 		glm::mat4 view_matrix = g_camera.get_view_matrix(cAction, fpsMode, dragDirection, magnitude);
 
+		// This function will potentially add new objects to the scene.
+		bool objects_changed = checkNewObjectsInput(view_matrix, projection_matrix, boids, boids_vertices, boids_faces); 
+
 		// Send vertices to the GPU.
 		CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER,
 		                            g_buffer_objects[kGeometryVao][kVertexBuffer]));
@@ -722,6 +769,15 @@ int main(int argc, char* argv[])
 
 		// Floor program.
 
+		if (objects_changed) {
+			CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kBoidsVao][kIndexBuffer]));
+			CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+						sizeof(uint32_t) * boids_faces.size() * 3,
+						&boids_faces[0], GL_STATIC_DRAW));
+		}
+
+
+
 		// Switch to the Geometry VAO.
 		CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kBoidsVao]));
 		// Send vertices to the GPU.
@@ -744,6 +800,7 @@ int main(int argc, char* argv[])
 		// Draw our triangles.
 		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, boids_faces.size() * 3, GL_UNSIGNED_INT, 0));
 
+		std::cout << boids.size() << '\n';
 		for (int i = 0; i < boids.size(); i ++) {
 			boids[i]->update(boids_vertices, boids);
 		}
