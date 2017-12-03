@@ -176,6 +176,7 @@ bool a_pressed = false;
 bool d_pressed = false;
 
 bool q_pressed = false;
+bool r_pressed = false;
 
 bool down_pressed = false;
 bool up_pressed = false;
@@ -218,6 +219,9 @@ KeyCallback(GLFWwindow* window,
 	} else if (key == GLFW_KEY_Q && action != GLFW_RELEASE) {
 		std::cout << "Q-pressed: event\n";
 		q_pressed = true;
+	} else if (key == GLFW_KEY_R && action != GLFW_RELEASE) {
+		std::cout << "R-pressed: event\n";
+		r_pressed = true;
 	}
 
 	if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
@@ -239,6 +243,9 @@ KeyCallback(GLFWwindow* window,
 	} else if (key == GLFW_KEY_Q && action == GLFW_RELEASE) {
 		std::cout << "Q-unpressed: event\n";
 		q_pressed = false;
+	} else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
+		std::cout << "R-unpressed: event\n";
+		r_pressed = false;
 	}
 
 	if (!g_menger)
@@ -401,9 +408,10 @@ checkInput() {
 // Method that checks the status of the interaction variables related to object input,
 // adding new objects to the scene in case that the user presses keys 'q' (for boids)
 // or 'r' (for obstacles).
-bool
-checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix, std::vector<Boid*> &boids,
-	std::vector<glm::vec4> &boids_vertices, std::vector<glm::uvec3> &boids_faces) {
+int
+checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix,
+	std::vector<Boid*> &boids, std::vector<glm::vec4> &boids_vertices, std::vector<glm::uvec3> &boids_faces,
+	std::vector<Obstacle*> &obstacles, std::vector<glm::vec4> &obstacles_vertices, std::vector<glm::uvec3> &obstacles_faces) {
 	if (q_pressed) {
 		std::cout << "trying to add boid\n";
 
@@ -424,9 +432,30 @@ checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix, std::ve
 
 		boids.push_back(new Boid(position.x, position.y, position.z, boids_vertices, boids_faces, boids.size()));
 		q_pressed = false;
-		return true;
+		return 1;
+	} else if (r_pressed) {
+		std::cout << "trying to add obstacle\n";
+
+		// Insert new boid in scene.
+		glm::uvec4 viewport = glm::uvec4(0, 0, window_width, window_height);
+
+		glm::vec3 near_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 0.0f);
+		glm::vec3 far_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 1.0f);
+
+		glm::vec3 world_near_coordinate = glm::unProject(near_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
+		glm::vec3 world_far_coordinate = glm::unProject(far_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
+
+		glm::vec3 direction = glm::normalize(world_far_coordinate - world_near_coordinate);
+
+		float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+
+		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
+
+		obstacles.push_back(new Obstacle(position.x, position.y, position.z, obstacles_vertices, obstacles_faces));
+		r_pressed = false;
+		return 2;
 	}
-	return false;
+	return 0;
 }
 
 int main(int argc, char* argv[])
@@ -808,7 +837,7 @@ int main(int argc, char* argv[])
 		glm::mat4 view_matrix = g_camera.get_view_matrix(cAction, fpsMode, dragDirection, magnitude);
 
 		// This function will potentially add new objects to the scene.
-		bool objects_changed = checkNewObjectsInput(view_matrix, projection_matrix, boids, boids_vertices, boids_faces); 
+		int objects_changed = checkNewObjectsInput(view_matrix, projection_matrix, boids, boids_vertices, boids_faces, obstacles, obstacles_vertices, obstacles_faces); 
 
 		// Send vertices to the GPU.
 		CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER,
@@ -859,11 +888,16 @@ int main(int argc, char* argv[])
 
 		// Floor program.
 
-		if (objects_changed) {
+		if (objects_changed == 1) {
 			CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kBoidsVao][kIndexBuffer]));
 			CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
 						sizeof(uint32_t) * boids_faces.size() * 3,
 						&boids_faces[0], GL_STATIC_DRAW));
+		} else if (objects_changed == 2) {
+			CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kObstaclesVao][kIndexBuffer]));
+			CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+						sizeof(uint32_t) * obstacles_faces.size() * 3,
+						&obstacles_faces[0], GL_STATIC_DRAW));
 		}
 
 
