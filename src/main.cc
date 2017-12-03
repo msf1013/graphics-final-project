@@ -15,6 +15,7 @@
 #include "menger.h"
 #include "camera.h"
 #include "boid.h"
+#include "obstacle.h"
 
 int window_width = 800, window_height = 600;
 
@@ -22,7 +23,7 @@ int window_width = 800, window_height = 600;
 enum { kVertexBuffer, kIndexBuffer, kNumVbos };
 
 // These are our VAOs.
-enum { kGeometryVao, kFloorVao, kBoidsVao, kNumVaos };
+enum { kGeometryVao, kFloorVao, kBoidsVao, kObstaclesVao, kNumVaos };
 
 GLuint g_array_objects[kNumVaos];  // This will store the VAO descriptors.
 GLuint g_buffer_objects[kNumVaos][kNumVbos];  // These will store VBO descriptors.
@@ -127,6 +128,21 @@ out vec4 fragment_color;
 void main()
 {
 	fragment_color = vec4(0.0, 1.0, 0.0, 0.0);
+	//float dot_nl = dot(normalize(light_direction), normalize(normal));
+	//dot_nl = clamp(dot_nl, 0.1, 1.0);
+	//fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+}
+)zzz";
+
+const char* obstacles_fragment_shader =
+R"zzz(#version 330 core
+flat in vec4 normal;
+in vec4 light_direction;
+in vec3 world_position;
+out vec4 fragment_color;
+void main()
+{
+	fragment_color = vec4(1.0, 0.0, 0.0, 0.0);
 	//float dot_nl = dot(normalize(light_direction), normalize(normal));
 	//dot_nl = clamp(dot_nl, 0.1, 1.0);
 	//fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
@@ -404,7 +420,7 @@ checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix, std::ve
 
 		float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 
-		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * r * 0.1f;
+		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.05f;
 
 		boids.push_back(new Boid(position.x, position.y, position.z, boids_vertices, boids_faces, boids.size()));
 		q_pressed = false;
@@ -679,6 +695,80 @@ int main(int argc, char* argv[])
 	CHECK_GL_ERROR(boids_light_position_location =
 			glGetUniformLocation(boids_program_id, "light_position"));
 
+
+
+
+
+	// Create data structures for the skeleton.
+	std::vector<Obstacle*> obstacles;
+	std::vector<glm::vec4> obstacles_vertices;
+	std::vector<glm::uvec3> obstacles_faces;
+
+	int tam2 = 40;
+
+	for (int i = 0; i < 25; i ++) {
+		float rand_x = rand() % (2*tam2) - tam2;
+		float rand_y = rand() % (2*tam2) - tam2;
+		float rand_z = rand() % (2*tam2) - tam2;
+		std::cout << rand_x << " " << rand_y << " " << rand_z << "\n";
+		obstacles.push_back(new Obstacle(rand_x, rand_y, rand_z, obstacles_vertices, obstacles_faces));
+	}
+
+	// Switch to the VAO for Geometry.
+	CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kObstaclesVao]));
+
+	// Generate buffer objects
+	CHECK_GL_ERROR(glGenBuffers(kNumVbos, &g_buffer_objects[kObstaclesVao][0]));
+
+	// Setup vertex data in a VBO.
+	CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, g_buffer_objects[kObstaclesVao][kVertexBuffer]));
+	// NOTE: We do not send anything right now, we just describe it to OpenGL.
+	CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
+				sizeof(float) * obstacles_vertices.size() * 4, nullptr,
+				GL_STATIC_DRAW));
+	CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
+	CHECK_GL_ERROR(glEnableVertexAttribArray(0));
+
+	// Setup element array buffer.
+	CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kObstaclesVao][kIndexBuffer]));
+	CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+				sizeof(uint32_t) * obstacles_faces.size() * 3,
+				&obstacles_faces[0], GL_STATIC_DRAW));
+
+	// Setup fragment shader for the floor
+	GLuint obstacles_fragment_shader_id = 0;
+	const char* obstacles_fragment_source_pointer = obstacles_fragment_shader;
+	CHECK_GL_ERROR(obstacles_fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER));
+	CHECK_GL_ERROR(glShaderSource(obstacles_fragment_shader_id, 1,
+				&obstacles_fragment_source_pointer, nullptr));
+	glCompileShader(obstacles_fragment_shader_id);
+	CHECK_GL_SHADER_ERROR(obstacles_fragment_shader_id);
+
+
+	// Let's create our floor program.
+	GLuint obstacles_program_id = 0;
+	CHECK_GL_ERROR(obstacles_program_id = glCreateProgram());
+	CHECK_GL_ERROR(glAttachShader(obstacles_program_id, vertex_shader_id));
+	CHECK_GL_ERROR(glAttachShader(obstacles_program_id, obstacles_fragment_shader_id));
+	CHECK_GL_ERROR(glAttachShader(obstacles_program_id, geometry_shader_id));
+
+	// Bind attributes.
+	CHECK_GL_ERROR(glBindAttribLocation(obstacles_program_id, 0, "vertex_position"));
+	CHECK_GL_ERROR(glBindFragDataLocation(obstacles_program_id, 0, "fragment_color"));
+	glLinkProgram(obstacles_program_id);
+	CHECK_GL_PROGRAM_ERROR(obstacles_program_id);
+
+	// Get the uniform locations.
+	GLint obstacles_projection_matrix_location = 0;
+	CHECK_GL_ERROR(obstacles_projection_matrix_location =
+			glGetUniformLocation(obstacles_program_id, "projection"));
+	GLint obstacles_view_matrix_location = 0;
+	CHECK_GL_ERROR(obstacles_view_matrix_location =
+			glGetUniformLocation(obstacles_program_id, "view"));
+	GLint obstacles_light_position_location = 0;
+	CHECK_GL_ERROR(obstacles_light_position_location =
+			glGetUniformLocation(obstacles_program_id, "light_position"));
+
 	while (!glfwWindowShouldClose(window)) {
 		// Setup some basic window stuff.
 		glfwGetFramebufferSize(window, &window_width, &window_height);
@@ -804,6 +894,28 @@ int main(int argc, char* argv[])
 		for (int i = 0; i < boids.size(); i ++) {
 			boids[i]->update(boids_vertices, boids);
 		}
+
+		// Switch to the Geometry VAO.
+		CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kObstaclesVao]));
+		// Send vertices to the GPU.
+		CHECK_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER,
+		                            g_buffer_objects[kObstaclesVao][kVertexBuffer]));
+		CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
+		                            sizeof(float) * obstacles_vertices.size() * 4,
+		                            &obstacles_vertices[0], GL_STATIC_DRAW));
+
+		// Use floor program.
+		CHECK_GL_ERROR(glUseProgram(obstacles_program_id));
+
+		// Pass uniforms in.
+		CHECK_GL_ERROR(glUniformMatrix4fv(obstacles_projection_matrix_location, 1, GL_FALSE,
+					&projection_matrix[0][0]));
+		CHECK_GL_ERROR(glUniformMatrix4fv(obstacles_view_matrix_location, 1, GL_FALSE,
+					&view_matrix[0][0]));
+		CHECK_GL_ERROR(glUniform4fv(obstacles_light_position_location, 1, &light_position[0]));
+
+		// Draw our triangles.
+		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, obstacles_faces.size() * 3, GL_UNSIGNED_INT, 0));
 
 		// Poll and swap.
 		glfwPollEvents();
