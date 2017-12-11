@@ -121,31 +121,37 @@ void main()
 
 const char* boids_fragment_shader =
 R"zzz(#version 330 core
-flat in vec4 normal;
+flat in vec4 color_normal;
 in vec4 light_direction;
 in vec3 world_position;
 out vec4 fragment_color;
 void main()
 {
-	fragment_color = vec4(0.0, 1.0, 0.0, 0.0);
-	//float dot_nl = dot(normalize(light_direction), normalize(normal));
-	//dot_nl = clamp(dot_nl, 0.1, 1.0);
-	//fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+	int color = (gl_PrimitiveID / 8) % 3;
+	if (color == 0) 
+		fragment_color = vec4(0.0, 1.0, 0.0, 0.0);
+	else if (color == 1)
+		fragment_color = vec4(1.0, 0.0, 1.0, 0.0);
+	else
+		fragment_color = vec4(0.0, 1.0, .0, 0.0);
+	float dot_nl = dot(normalize(light_direction), normalize(color_normal));
+	dot_nl = clamp(dot_nl, 0.1, 1.0);
+	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
 }
 )zzz";
 
 const char* obstacles_fragment_shader =
 R"zzz(#version 330 core
-flat in vec4 normal;
+flat in vec4 color_normal;
 in vec4 light_direction;
 in vec3 world_position;
 out vec4 fragment_color;
 void main()
 {
 	fragment_color = vec4(1.0, 0.0, 0.0, 0.0);
-	//float dot_nl = dot(normalize(light_direction), normalize(normal));
-	//dot_nl = clamp(dot_nl, 0.1, 1.0);
-	//fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+	float dot_nl = dot(normalize(light_direction), normalize(color_normal));
+	dot_nl = clamp(dot_nl, 0.1, 1.0);
+	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
 }
 )zzz";
 
@@ -451,6 +457,10 @@ checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix,
 
 		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
 
+		if (glm::length(position) > 50) {
+			return 0;
+		}
+
 		obstacles.push_back(new Obstacle(position.x, position.y, position.z, obstacles_vertices, obstacles_faces));
 		r_pressed = false;
 		return 2;
@@ -735,7 +745,7 @@ int main(int argc, char* argv[])
 
 	int tam2 = 40;
 
-	for (int i = 0; i < 25; i ++) {
+	for (int i = 0; i < 80; i ++) {
 		float rand_x = rand() % (2*tam2) - tam2;
 		float rand_y = rand() % (2*tam2) - tam2;
 		float rand_z = rand() % (2*tam2) - tam2;
@@ -926,7 +936,7 @@ int main(int argc, char* argv[])
 
 		std::cout << boids.size() << '\n';
 		for (int i = 0; i < boids.size(); i ++) {
-			boids[i]->update(boids_vertices, boids);
+			boids[i]->update(boids_vertices, boids, obstacles);
 		}
 
 		// Switch to the Geometry VAO.

@@ -7,6 +7,7 @@
 #include <glm/gtx/norm.hpp> 
 #include <vector>
 #include <random>
+#include "obstacle.h";
 
 float lim = 40.0f;
 
@@ -70,13 +71,14 @@ public:
 		faces.push_back(glm::uvec3(vertex_base_index + 2, vertex_base_index + 1, vertex_base_index + 4));
 	}
 
-	void update(std::vector<glm::vec4>& vertices, std::vector<Boid*> boids) {
+	void update(std::vector<glm::vec4>& vertices, std::vector<Boid*> boids, std::vector<Obstacle*> obstacles) {
 		glm::vec3 v1 = cohesion(boids);
 		glm::vec3 v2 = separation(boids);
 		glm::vec3 v3 = alignment(boids);
-		glm::vec3 v4 = bound_position();
+		glm::vec3 v4 = avoid_obstacles(obstacles);
+		glm::vec3 v5 = bound_position();
 
-		velocity = velocity + v1 + v2 + v3 + v4;
+		velocity = velocity + v1 + v2 + v3 + v4 + v5;
 		velocity = limit_velocity(velocity); 
 
 		glm::vec3 new_front = glm::normalize(velocity);
@@ -163,7 +165,7 @@ public:
 			return glm::vec3(0.0f, 0.0f, 0.0f);
 		}
 
-		return -1.0f * center * (((float) rand() / (RAND_MAX)) + 1.0f);
+		return -10.0f * center; // * (((float) rand() / (RAND_MAX)) + 1.0f);
 
 
 		/*glm::vec3 orientation = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -188,6 +190,32 @@ public:
 		}
 		
 		return orientation;*/
+	}
+
+	glm::vec3 avoid_obstacles(std::vector<Obstacle*> obstacles) {
+		glm::vec3 displacement = glm::vec3(0.0f, 0.0f, 0.0f);
+
+		//return displacement;
+
+		for (int i = 0; i < obstacles.size(); i ++) {
+			float d = glm::length((obstacles[i]->center) - center);
+			if (d < obstacles[i]->radius * 3.0f) {
+				glm::vec3 sample = center - (obstacles[i]->center);
+				glm::vec3 perpendicular;
+
+				if (sample.y != 0.0f && sample.z != 0.0f) {
+					perpendicular = glm::cross(sample, glm::vec3(1.0f, 0.0f, 0.0f));
+				} else {
+					perpendicular = glm::cross(sample, glm::vec3(0.0f, 1.0f, 0.0f));
+				}
+
+				perpendicular /= d;
+
+				displacement += perpendicular;
+			}
+		}
+
+		return displacement * 30.0f;
 	}
 
 	glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
