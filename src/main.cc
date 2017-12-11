@@ -121,22 +121,24 @@ void main()
 
 const char* boids_fragment_shader =
 R"zzz(#version 330 core
+flat in vec4 normal;
 flat in vec4 color_normal;
 in vec4 light_direction;
 in vec3 world_position;
 out vec4 fragment_color;
 void main()
 {
-	int color = (gl_PrimitiveID / 8) % 3;
-	if (color == 0) 
-		fragment_color = vec4(0.0, 1.0, 0.0, 0.0);
-	else if (color == 1)
-		fragment_color = vec4(1.0, 0.0, 1.0, 0.0);
-	else
-		fragment_color = vec4(0.0, 1.0, .0, 0.0);
-	float dot_nl = dot(normalize(vec4(-1.0, -1.0, 0.0, 1.0)), normalize(color_normal));
+	vec4 color = vec4(1.0, 0.0, 0.0, 1.0);
+	if (color_normal.y == 0.0 && color_normal.z == 0.0) {
+		color = vec4(1.0, 0.0, 0.0, 1.0);
+	} else if (color_normal.x == 0.0 && color_normal.z == 0.0) {
+		color = vec4(0.0, 1.0, 0.0, 1.0);
+	} else {
+		color = vec4(0.0, 1.0, 0.0, 1.0);
+	}
+	float dot_nl = dot(normalize(light_direction), normalize(normal));
 	dot_nl = clamp(dot_nl, 0.1, 1.0);
-	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+	fragment_color = clamp(dot_nl * color, 0.0, 1.0);
 }
 )zzz";
 
@@ -149,9 +151,9 @@ out vec4 fragment_color;
 void main()
 {
 	fragment_color = vec4(1.0, 0.0, 0.0, 0.0);
-	float dot_nl = dot(normalize(vec4(-1.0, -1.0, 0.0, 1.0)), normalize(color_normal));
-	dot_nl = clamp(dot_nl, 0.1, 1.0);
-	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+	//float dot_nl = dot(normalize(vec4(-1.0, -1.0, 0.0, 1.0)), normalize(color_normal));
+	//dot_nl = clamp(dot_nl, 0.1, 1.0);
+	//fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
 }
 )zzz";
 
