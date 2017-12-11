@@ -134,7 +134,7 @@ void main()
 		fragment_color = vec4(1.0, 0.0, 1.0, 0.0);
 	else
 		fragment_color = vec4(0.0, 1.0, .0, 0.0);
-	float dot_nl = dot(normalize(light_direction), normalize(color_normal));
+	float dot_nl = dot(normalize(vec4(-1.0, -1.0, 0.0, 1.0)), normalize(color_normal));
 	dot_nl = clamp(dot_nl, 0.1, 1.0);
 	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
 }
@@ -149,7 +149,7 @@ out vec4 fragment_color;
 void main()
 {
 	fragment_color = vec4(1.0, 0.0, 0.0, 0.0);
-	float dot_nl = dot(normalize(light_direction), normalize(color_normal));
+	float dot_nl = dot(normalize(vec4(-1.0, -1.0, 0.0, 1.0)), normalize(color_normal));
 	dot_nl = clamp(dot_nl, 0.1, 1.0);
 	fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
 }
