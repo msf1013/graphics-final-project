@@ -151,9 +151,11 @@ out vec4 fragment_color;
 void main()
 {
 	fragment_color = vec4(1.0, 0.0, 0.0, 0.0);
-	//float dot_nl = dot(normalize(vec4(-1.0, -1.0, 0.0, 1.0)), normalize(color_normal));
-	//dot_nl = clamp(dot_nl, 0.1, 1.0);
-	//fragment_color = clamp(dot_nl * fragment_color, 0.0, 1.0);
+	float dot_nl = dot(normalize(vec4(-1.0, -1.0, 0.0, 1.0)), normalize(color_normal));
+	float dot_nl_2 = dot(normalize(vec4(1.0, 1.0, 0.0, 1.0)), normalize(color_normal));
+	dot_nl = clamp(dot_nl, 0.1, 1.0);
+	dot_nl_2 = clamp(dot_nl_2, 0.1, 1.0);
+	fragment_color = clamp((dot_nl + dot_nl_2) * fragment_color, 0.0, 1.0);
 }
 )zzz";
 
@@ -838,7 +840,7 @@ int main(int argc, char* argv[])
 		// Compute the projection matrix.
 		aspect = static_cast<float>(window_width) / window_height;
 		glm::mat4 projection_matrix =
-			glm::perspective(glm::radians(45.0f), aspect, 0.0001f, 1000.0f);
+			glm::perspective(glm::radians(45.0f), aspect, 0.01f, 1000.0f);
 
 		// This function will capture important data from mouse/keyboard events,
 		// which might translate to control actions that can affect
