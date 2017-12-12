@@ -667,7 +667,7 @@ int main(int argc, char* argv[])
 		}
 
 		// Update boids positions.
-		for (int i = 0; i < boids.size(); i ++) {
+		for (unsigned int i = 0; i < boids.size(); i ++) {
 			boids[i]->update(boids_vertices, boids, obstacles);
 		}
 
