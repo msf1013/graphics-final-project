@@ -461,8 +461,9 @@ checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix,
 
 		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
 
-		if (glm::length(position) > 50) {
-			return 0;
+		while (glm::length(position) > 50.0f && glm::length(position) < 80.0f) {
+			r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+			position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
 		}
 
 		obstacles.push_back(new Obstacle(position.x, position.y, position.z, obstacles_vertices, obstacles_faces));
