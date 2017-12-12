@@ -461,9 +461,50 @@ checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix,
 
 		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
 
-		while (glm::length(position) > 50.0f && glm::length(position) < 80.0f) {
+		// Attempt to locate position in safe boundary
+		int no_of_attempts = 0;
+		while (glm::length(position) > 50.0f /*&& glm::length(position) < 100.0f*/ && no_of_attempts < 20) {
 			r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 			position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
+			no_of_attempts ++;
+		}
+
+		// Place obstacle at a distance of 90 from the origin 
+		if (no_of_attempts == 20) {
+			//return 0;
+			float x, y, z;
+			float a, b, c;
+			glm::vec3 direction = glm::normalize(world_far_coordinate - world_near_coordinate);
+
+			a = world_near_coordinate.x;
+			b = world_near_coordinate.y;
+			c = world_near_coordinate.z;
+
+			x = direction.x;
+			y = direction.y;
+			z = direction.z;
+
+			float a_q, b_q, c_q;
+
+			a_q = x*x + y*y + z*z;
+			b_q = 2.0f * (a*x + b*y + c*z);
+			c_q = a*a + b*b + c*c - 80.0f*80.0f;
+
+			float k;
+
+			if (glm::sqrt(b_q*b_q - 4.0f*a_q*c_q) >= 0.0f) {
+				k = (-b_q + glm::sqrt(b_q*b_q - 4.0f*a_q*c_q)) / (2.0f * a_q);
+
+				position = world_near_coordinate + direction * k;
+				std::cout << "CORRECTED - " << glm::length(position) << "\n";
+			} else {
+				k = 200.0f;
+
+				position = world_near_coordinate + direction * k;
+				std::cout << "impossible - " << glm::length(position) << "\n";
+			}
+		} else {
+			std::cout << "OK - " << glm::length(position) << "\n";
 		}
 
 		obstacles.push_back(new Obstacle(position.x, position.y, position.z, obstacles_vertices, obstacles_faces));
@@ -939,7 +980,7 @@ int main(int argc, char* argv[])
 		// Draw our triangles.
 		CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, boids_faces.size() * 3, GL_UNSIGNED_INT, 0));
 
-		std::cout << boids.size() << '\n';
+		//std::cout << boids.size() << '\n';
 		for (int i = 0; i < boids.size(); i ++) {
 			boids[i]->update(boids_vertices, boids, obstacles);
 		}

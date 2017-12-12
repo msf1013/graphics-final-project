@@ -165,7 +165,7 @@ public:
 			return glm::vec3(0.0f, 0.0f, 0.0f);
 		}
 
-		return -10.0f * center; // * (((float) rand() / (RAND_MAX)) + 1.0f);
+		return -20.0f * glm::normalize(center); // * (((float) rand() / (RAND_MAX)) + 1.0f);
 
 
 		/*glm::vec3 orientation = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -209,13 +209,13 @@ public:
 					perpendicular = glm::cross(sample, glm::vec3(0.0f, 1.0f, 0.0f));
 				}
 
-				perpendicular /= d;
+				perpendicular = glm::normalize(perpendicular) / d;
 
 				displacement += perpendicular;
 			}
 		}
 
-		return displacement * 30.0f;
+		return displacement * 60.0f;
 	}
 
 	glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
