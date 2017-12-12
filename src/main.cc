@@ -342,58 +342,52 @@ checkInput() {
 // or 'r' (for obstacles).
 int
 checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix,
-	std::vector<Boid*> &boids, std::vector<glm::vec4> &boids_vertices, std::vector<glm::uvec3> &boids_faces,
-	std::vector<Obstacle*> &obstacles, std::vector<glm::vec4> &obstacles_vertices, std::vector<glm::uvec3> &obstacles_faces) {
+					 std::vector<Boid*> &boids, std::vector<glm::vec4> &boids_vertices, std::vector<glm::uvec3> &boids_faces,
+					 std::vector<Obstacle*> &obstacles, std::vector<glm::vec4> &obstacles_vertices, std::vector<glm::uvec3> &obstacles_faces) {
+	
+	glm::uvec4 viewport = glm::uvec4(0, 0, window_width, window_height);
+
+	// We'll project a ray going from the near coordinate to the far coordinate,
+	// and choose a random location inbetween to position the object. 
+	glm::vec3 near_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 0.0f);
+	glm::vec3 far_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 1.0f);
+
+	glm::vec3 world_near_coordinate = glm::unProject(near_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
+	glm::vec3 world_far_coordinate = glm::unProject(far_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
+
+	glm::vec3 direction = glm::normalize(world_far_coordinate - world_near_coordinate);
+
+	float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+
+	glm::vec3 position;
+
+	// Insert new boid in scene.
 	if (q_pressed) {
-		std::cout << "trying to add boid\n";
-
-		// Insert new boid in scene.
-		glm::uvec4 viewport = glm::uvec4(0, 0, window_width, window_height);
-
-		glm::vec3 near_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 0.0f);
-		glm::vec3 far_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 1.0f);
-
-		glm::vec3 world_near_coordinate = glm::unProject(near_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
-		glm::vec3 world_far_coordinate = glm::unProject(far_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
-
-		glm::vec3 direction = glm::normalize(world_far_coordinate - world_near_coordinate);
-
-		float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-
-		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.05f;
+		position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.05f;
 
 		boids.push_back(new Boid(position.x, position.y, position.z, boids_vertices, boids_faces, boids.size()));
 		q_pressed = false;
 		return 1;
+
+	// Insert new obstacle in scene.
 	} else if (r_pressed) {
-		std::cout << "trying to add obstacle\n";
+		position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
 
-		// Insert new boid in scene.
-		glm::uvec4 viewport = glm::uvec4(0, 0, window_width, window_height);
-
-		glm::vec3 near_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 0.0f);
-		glm::vec3 far_coordinate = glm::vec3(mouse_x_captured_without_button_press, mouse_y_captured_without_button_press, 1.0f);
-
-		glm::vec3 world_near_coordinate = glm::unProject(near_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
-		glm::vec3 world_far_coordinate = glm::unProject(far_coordinate, glm::mat4(1.0f), projection_matrix * view_matrix, viewport);
-
-		glm::vec3 direction = glm::normalize(world_far_coordinate - world_near_coordinate);
-
-		float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-
-		glm::vec3 position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
-
-		// Attempt to locate position in safe boundary
+		// For the case of obstacles, we'll have to check whether the position we got
+		// is within the boundaries.
+		
+		// Attempt to locate the obstacle within the boundary.
 		int no_of_attempts = 0;
-		while (glm::length(position) > 50.0f /*&& glm::length(position) < 100.0f*/ && no_of_attempts < 20) {
+		while (glm::length(position) > 50.0f && no_of_attempts < 20) {
 			r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 			position = world_near_coordinate + (world_far_coordinate - world_near_coordinate) * glm::max(r, 0.5f) * 0.2f;
 			no_of_attempts ++;
 		}
 
-		// Place obstacle at a distance of 90 from the origin 
+		// If this wasn't possible, we'll position the obstacle in the ray at a distance of 90 from the origin. 
 		if (no_of_attempts == 20) {
-			//return 0;
+			// We apply the quadratic formula to find the location over the ray
+			// that is at a distance of 90 from the origin.
 			float x, y, z;
 			float a, b, c;
 			glm::vec3 direction = glm::normalize(world_far_coordinate - world_near_coordinate);
@@ -414,19 +408,15 @@ checkNewObjectsInput(glm::mat4 view_matrix, glm::mat4 projection_matrix,
 
 			float k;
 
+			// Check if the equation has a solution.
+			// If no solution exists, we'll choose an aribitrary position for the obstacle
+			// (k = 200).
 			if (glm::sqrt(b_q*b_q - 4.0f*a_q*c_q) >= 0.0f) {
 				k = (-b_q + glm::sqrt(b_q*b_q - 4.0f*a_q*c_q)) / (2.0f * a_q);
-
-				position = world_near_coordinate + direction * k;
-				std::cout << "CORRECTED - " << glm::length(position) << "\n";
 			} else {
 				k = 200.0f;
-
-				position = world_near_coordinate + direction * k;
-				std::cout << "impossible - " << glm::length(position) << "\n";
 			}
-		} else {
-			std::cout << "OK - " << glm::length(position) << "\n";
+			position = world_near_coordinate + direction * k;
 		}
 
 		obstacles.push_back(new Obstacle(position.x, position.y, position.z, obstacles_vertices, obstacles_faces));
@@ -508,7 +498,7 @@ int main(int argc, char* argv[])
 	// Setup our VAO array.
 	CHECK_GL_ERROR(glGenVertexArrays(kNumVaos, &g_array_objects[0]));
 
-	// Switch to the VAO for Geometry.
+	// Switch to the VAO for boids.
 	CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kBoidsVao]));
 
 	// Generate buffer objects
@@ -580,7 +570,7 @@ int main(int argc, char* argv[])
 		obstacles.push_back(new Obstacle(rand_x, rand_y, rand_z, obstacles_vertices, obstacles_faces));
 	}
 
-	// Switch to the VAO for Geometry.
+	// Switch to the VAO for obstacles.
 	CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kObstaclesVao]));
 
 	// Generate buffer objects
@@ -601,7 +591,7 @@ int main(int argc, char* argv[])
 				sizeof(uint32_t) * obstacles_faces.size() * 3,
 				&obstacles_faces[0], GL_STATIC_DRAW));
 
-	// Setup fragment shader for the floor
+	// Setup fragment shader for the obstacles.
 	GLuint obstacles_fragment_shader_id = 0;
 	const char* obstacles_fragment_source_pointer = obstacles_fragment_shader;
 	CHECK_GL_ERROR(obstacles_fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER));
@@ -663,11 +653,13 @@ int main(int argc, char* argv[])
 			            						   obstacles, obstacles_vertices, obstacles_faces); 
 
 		if (objects_changed == 1) {
+			CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kBoidsVao]));
 			CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kBoidsVao][kIndexBuffer]));
 			CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
 						sizeof(uint32_t) * boids_faces.size() * 3,
 						&boids_faces[0], GL_STATIC_DRAW));
 		} else if (objects_changed == 2) {
+			CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kObstaclesVao]));
 			CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_buffer_objects[kObstaclesVao][kIndexBuffer]));
 			CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
 						sizeof(uint32_t) * obstacles_faces.size() * 3,
