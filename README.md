@@ -11,7 +11,7 @@ make
 
 ## Execution
 
-Run these commands:
+Please run these commands:
 
 ```
 cd build/bin
